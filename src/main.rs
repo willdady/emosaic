@@ -193,6 +193,7 @@ fn main() {
     let images = read_images_in_dir(tiles_dir);
     let tile_set = analyse_images(images);
 
+    // TODO: Show better error if parse fails
     let tile_size: u32 = matches.value_of("tile_size").unwrap().parse().unwrap();
 
     let img = image::open(img_path).unwrap();

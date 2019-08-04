@@ -5,7 +5,7 @@ Mosaic generator written in Rust!
 ## Building
 
 ```
-cargo build
+cargo build --release
 ```
 
 ## Usage
