@@ -9,7 +9,7 @@ use std::sync::mpsc::channel;
 use std::collections::HashMap;
 
 use clap::{Arg, App};
-use image::{DynamicImage, Rgba, RgbaImage, FilterType};
+use image::{DynamicImage, Rgba, RgbaImage, FilterType, ImageFormat};
 use image::imageops;
 
 struct Tile {
@@ -171,6 +171,12 @@ fn main() {
             .value_name("UINT")
             .help("The size of each tile in the output image")
             .default_value("16"))
+        .arg(Arg::with_name("output_path")
+            .short("o")
+            .long("output")
+            .value_name("OUT")
+            .help("Output image path")
+            .default_value("./output.png"))
         .arg(Arg::with_name("tiles_dir")
             .value_name("DIR")
             .help("Directory containing tile images")
@@ -188,11 +194,13 @@ fn main() {
     let tiles_dir_path = matches.value_of("tiles_dir").unwrap();
     let tiles_dir = Path::new(tiles_dir_path);
 
-    let images = read_images_in_dir(tiles_dir);
-    let tile_set = analyse_images(images);
-
     // TODO: Show better error if parse fails
     let tile_size: u32 = matches.value_of("tile_size").unwrap().parse().unwrap();
+
+    let output_path = matches.value_of("output_path").unwrap();
+
+    let images = read_images_in_dir(tiles_dir);
+    let tile_set = analyse_images(images);
 
     let img = image::open(img_path).unwrap();
     let img = img.to_rgba();
@@ -228,5 +236,5 @@ fn main() {
         };
     }
 
-    output.save("./output.png").unwrap();
+    output.save_with_format(output_path, ImageFormat::PNG).unwrap();
 }
