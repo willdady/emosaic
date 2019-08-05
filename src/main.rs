@@ -146,14 +146,12 @@ fn analyse_images(images: Vec<(PathBuf, RgbaImage)>) -> TileSet {
         handle.join().unwrap();
     }
     let mut tile_set = TileSet::new();
-    let mut count: usize = 0;
-    for (path_buf, rgba) in rx {
+    for (count, (path_buf, rgba)) in rx.iter().enumerate() {
         if let Some(rgba) = rgba {
             let tile = Tile::new(path_buf, rgba);
             tile_set.push(tile);
         }
-        count += 1;
-        if count == num_images {
+        if count == num_images - 1 {
             break;
         }
     }
