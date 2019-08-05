@@ -119,6 +119,7 @@ fn read_images_in_dir(path: &Path) -> Vec<(PathBuf, RgbaImage)> {
         };
         let img = match img {
             DynamicImage::ImageRgba8(im) => im as RgbaImage,
+            DynamicImage::ImageRgb8(_) => img.to_rgba(),
             _ => continue
         };
         images.push((path_buf, img));
