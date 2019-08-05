@@ -102,10 +102,10 @@ fn get_average_color(img: RgbaImage) -> Option<Rgba<u8>> {
         a += pixel[3] as f64;
         count += 1.0;
     }
-    let r = (r / count) as u8;
-    let g = (g / count) as u8;
-    let b = (b / count) as u8;
-    let a = (a / count) as u8;
+    let r = (r / count).round() as u8;
+    let g = (g / count).round() as u8;
+    let b = (b / count).round() as u8;
+    let a = (a / count).round() as u8;
     Some(Rgba([r, g, b, a]))
 }
 
@@ -200,22 +200,33 @@ fn main() {
     let img = img.to_rgba();
     let mut output = image::RgbaImage::new(&img.width() * tile_size, &img.height() * tile_size);
 
-    let mut cache = HashMap::new();
+    let mut pixel_cache = HashMap::new();
+    let mut resize_cache = HashMap::new();
 
     for (x, y, rgba) in img.enumerate_pixels() {
-        let tile = tile_set.closest_tile(rgba);
+        let tile = match pixel_cache.get(rgba) {
+            Some(tile) => tile,
+            _ => {
+                let tile = tile_set.closest_tile(rgba);
+                pixel_cache.insert(rgba, tile);
+                tile
+            }
+        };
+
         let path = tile.path();
 
-        if cache.contains_key(path) {
-            let tile_img = cache.get(path).unwrap();
-            imageops::overlay(&mut output, tile_img, x * tile_size, y * tile_size);
-            continue;
-        }
-
-        let tile_img = image::open(path).unwrap();
-        let tile_img = imageops::resize(&tile_img, tile_size, tile_size, FilterType::Lanczos3);
-        imageops::overlay(&mut output, &tile_img, x * tile_size, y * tile_size);
-        cache.insert(path, tile_img);
+        match resize_cache.get(path) {
+            Some(tile_img) => {
+                imageops::overlay(&mut output, tile_img, x * tile_size, y * tile_size);
+                continue;
+            },
+            _ => {
+                let tile_img = image::open(path).unwrap();
+                let tile_img = imageops::resize(&tile_img, tile_size, tile_size, FilterType::Lanczos3);
+                imageops::overlay(&mut output, &tile_img, x * tile_size, y * tile_size);
+                resize_cache.insert(path, tile_img);
+            }
+        };
     }
 
     output.save("./output.png").unwrap();
