@@ -25,13 +25,13 @@ impl Tile {
         }
     }
 
-    fn dist(&self, rgba: &Rgba<u8>) -> f64 {
-        let r1 = self.rgba[0] as f64;
-        let g1 = self.rgba[1] as f64;
-        let b1 = self.rgba[2] as f64;
-        let r2 = rgba[0] as f64;
-        let g2 = rgba[1] as f64;
-        let b2 = rgba[2] as f64;
+    fn dist(&self, rgba: Rgba<u8>) -> f64 {
+        let r1 = f64::from(self.rgba[0]);
+        let g1 = f64::from(self.rgba[1]);
+        let b1 = f64::from(self.rgba[2]);
+        let r2 = f64::from(rgba[0]);
+        let g2 = f64::from(rgba[1]);
+        let b2 = f64::from(rgba[2]);
         ((r2 - r1) * 0.3).powi(2) + ((g2 - g1) * 0.59).powi(2) + ((b2 - b1) * 0.11).powi(2)
     }
 
@@ -59,7 +59,7 @@ impl TileSet {
         let mut d = std::f64::MAX;
         let mut t = &self.tiles[0];
         for tile in &self.tiles {
-            let d2 = tile.dist(rgba);
+            let d2 = tile.dist(*rgba);
             if d2 < d {
                 d = d2;
                 t = tile;
@@ -85,7 +85,7 @@ fn get_average_color(img: RgbaImage) -> Option<Rgba<u8>> {
     let mut b = 0.0;
     let mut a = 0.0;
     let mut count = 0.0;
-    let total_pixels = (img.width() * img.height()) as f64;
+    let total_pixels = f64::from(img.width() * img.height());
     let mut transparent_pixel_count = 0.0;
     for pixel in img.pixels() {
         // If more than 50% of pixels have a 0% alpha return None
@@ -96,10 +96,10 @@ fn get_average_color(img: RgbaImage) -> Option<Rgba<u8>> {
             }
         }
 
-        r += pixel[0] as f64;
-        g += pixel[1] as f64;
-        b += pixel[2] as f64;
-        a += pixel[3] as f64;
+        r += f64::from(pixel[0]);
+        g += f64::from(pixel[1]);
+        b += f64::from(pixel[2]);
+        a += f64::from(pixel[3]);
         count += 1.0;
     }
     let r = (r / count).round() as u8;
@@ -147,12 +147,9 @@ fn analyse_images(images: Vec<(PathBuf, RgbaImage)>) -> TileSet {
     let mut tile_set = TileSet::new();
     let mut count: usize = 0;
     for (path_buf, rgba) in rx {
-        match rgba {
-            Some(rgba) => {
-                let tile = Tile::new(path_buf, rgba);
-                tile_set.push(tile);
-            },
-            _ => ()
+        if let Some(rgba) = rgba {
+            let tile = Tile::new(path_buf, rgba);
+            tile_set.push(tile);
         }
         count += 1;
         if count == num_images {
@@ -198,23 +195,24 @@ fn main() {
 
     let img = image::open(img_path).unwrap();
     let img = img.to_rgba();
-    let mut output = image::RgbaImage::new(&img.width() * tile_size, &img.height() * tile_size);
+    let mut output = image::RgbaImage::new(img.width() * tile_size, img.height() * tile_size);
 
-    let mut pixel_cache = HashMap::new();
+    // Cache mapping pixel to tile with closest color
+    let mut tile_cache = HashMap::new();
+    // Cache mapping file path to resized tile image
     let mut resize_cache = HashMap::new();
 
     for (x, y, rgba) in img.enumerate_pixels() {
-        let tile = match pixel_cache.get(rgba) {
+        let tile = match tile_cache.get(rgba) {
             Some(tile) => tile,
             _ => {
                 let tile = tile_set.closest_tile(rgba);
-                pixel_cache.insert(rgba, tile);
+                tile_cache.insert(rgba, tile);
                 tile
             }
         };
 
         let path = tile.path();
-
         match resize_cache.get(path) {
             Some(tile_img) => {
                 imageops::overlay(&mut output, tile_img, x * tile_size, y * tile_size);
