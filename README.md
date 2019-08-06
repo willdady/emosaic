@@ -2,9 +2,7 @@
 
 Mosaic generator written in [Rust!](https://www.rust-lang.org/)
 
-<div style="background-color: #333;">
-  <img src="example/warhol.png?raw=true" />
-</div>
+![](example/warhol.png?raw=true)
 
 ## Building
 
