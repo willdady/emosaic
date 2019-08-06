@@ -202,9 +202,7 @@ fn main() {
 
     let output_path = matches.value_of("output_path").unwrap();
 
-    let images = read_images_in_dir(tiles_dir);
-    let tile_set = analyse_images(images);
-
+    // Open source image
     let img = match image::open(img_path) {
         Ok(img) => img,
         Err(e) => {
@@ -213,6 +211,10 @@ fn main() {
         }
     };
     let img = img.to_rgba();
+
+    let images = read_images_in_dir(tiles_dir);
+    let tile_set = analyse_images(images);
+
     let mut output = image::RgbaImage::new(img.width() * tile_size, img.height() * tile_size);
 
     // Cache mapping pixel to tile with closest color
