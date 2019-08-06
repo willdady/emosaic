@@ -2,6 +2,8 @@
 
 Mosaic generator written in [Rust!](https://www.rust-lang.org/)
 
+![](example/warhol.png?raw=true)
+
 ## Building
 
 To build [make sure you have rust installed](https://www.rust-lang.org/tools/install).
