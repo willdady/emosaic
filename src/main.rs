@@ -192,15 +192,26 @@ fn main() {
     let tiles_dir_path = matches.value_of("tiles_dir").unwrap();
     let tiles_dir = Path::new(tiles_dir_path);
 
-    // TODO: Show better error if parse fails
-    let tile_size: u32 = matches.value_of("tile_size").unwrap().parse().unwrap();
+    let tile_size: u32 = match matches.value_of("tile_size").unwrap().parse() {
+        Ok(val) => val,
+        _ => {
+            eprintln!("Invalid value for 'tile-size': Value must be an unsigned integer");
+            std::process::exit(1);
+        }
+    };
 
     let output_path = matches.value_of("output_path").unwrap();
 
     let images = read_images_in_dir(tiles_dir);
     let tile_set = analyse_images(images);
 
-    let img = image::open(img_path).unwrap();
+    let img = match image::open(img_path) {
+        Ok(img) => img,
+        Err(e) => {
+            eprintln!("Failed to open source image: {}", e);
+            std::process::exit(1);
+        }
+    };
     let img = img.to_rgba();
     let mut output = image::RgbaImage::new(img.width() * tile_size, img.height() * tile_size);
 
