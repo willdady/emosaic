@@ -69,8 +69,8 @@ pub fn analyse_images(images: Vec<(PathBuf, RgbaImage)>) -> TileSet {
         let owned_chuck = chunk.to_owned();
         let handle = thread::spawn(move || {
             for (path_buf, img) in owned_chuck {
-                let half_width = (img.width() as f64 * 0.5).floor() as u32;
-                let half_height = (img.height() as f64 * 0.5).floor() as u32;
+                let half_width = (f64::from(img.width()) * 0.5).floor() as u32;
+                let half_height = (f64::from(img.height()) * 0.5).floor() as u32;
 
                 let rect_top_left = (0u32, 0u32, half_width, half_height);
                 let rect_top_right = (half_width, 0u32, half_width, half_height);

@@ -24,20 +24,20 @@ impl Tile {
         }
     }
 
-    fn compare_top_left(&self, color: &Rgba<u8>) -> f64 {
-        compare_color(&self.colors[0], color)
+    fn compare_top_left(&self, color: Rgba<u8>) -> f64 {
+        compare_color(self.colors[0], color)
     }
 
-    fn compare_top_right(&self, color: &Rgba<u8>) -> f64 {
-        compare_color(&self.colors[1], color)
+    fn compare_top_right(&self, color: Rgba<u8>) -> f64 {
+        compare_color(self.colors[1], color)
     }
 
-    fn compare_bottom_right(&self, color: &Rgba<u8>) -> f64 {
-        compare_color(&self.colors[2], color)
+    fn compare_bottom_right(&self, color: Rgba<u8>) -> f64 {
+        compare_color(self.colors[2], color)
     }
 
-    fn compare_bottom_left(&self, color: &Rgba<u8>) -> f64 {
-        compare_color(&self.colors[3], color)
+    fn compare_bottom_left(&self, color: Rgba<u8>) -> f64 {
+        compare_color(self.colors[3], color)
     }
 
     fn path(&self) -> &Path {
@@ -67,10 +67,10 @@ impl TileSet {
         for tile in &self.tiles {
             let [top_left, top_right, bottom_right, bottom_left] = colors;
 
-            let tl2 = tile.compare_top_left(top_left);
-            let tr2 = tile.compare_top_right(top_right);
-            let br2 = tile.compare_bottom_right(bottom_right);
-            let bl2 = tile.compare_bottom_left(bottom_left);
+            let tl2 = tile.compare_top_left(*top_left);
+            let tr2 = tile.compare_top_right(*top_right);
+            let br2 = tile.compare_bottom_right(*bottom_right);
+            let bl2 = tile.compare_bottom_left(*bottom_left);
 
             let d2 = tl2 + tr2 + br2 + bl2;
 

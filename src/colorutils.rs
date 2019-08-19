@@ -30,7 +30,7 @@ pub fn average_color(img: &RgbaImage, rect: &(u32, u32, u32, u32)) -> Rgba<u8> {
 }
 
 
-pub fn compare_color(a: &Rgba<u8>, b: &Rgba<u8>) -> f64 {
+pub fn compare_color(a: Rgba<u8>, b: Rgba<u8>) -> f64 {
     let r1 = f64::from(a[0]);
     let g1 = f64::from(a[1]);
     let b1 = f64::from(a[2]);

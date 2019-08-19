@@ -46,10 +46,10 @@ pub fn render(source_img: &RgbaImage, tile_set: &TileSet, tile_size: u32, tint_o
             if tint_opacity <= 0.0 {
                 continue;
             }
-            colors[0][3] = (255 as f64 * tint_opacity).round() as u8;
-            colors[1][3] = (255 as f64 * tint_opacity).round() as u8;
-            colors[2][3] = (255 as f64 * tint_opacity).round() as u8;
-            colors[3][3] = (255 as f64 * tint_opacity).round() as u8;
+            colors[0][3] = (255_f64 * tint_opacity).round() as u8;
+            colors[1][3] = (255_f64 * tint_opacity).round() as u8;
+            colors[2][3] = (255_f64 * tint_opacity).round() as u8;
+            colors[3][3] = (255_f64 * tint_opacity).round() as u8;
             fill_rect(&mut output, &colors[0], &(tile_x, tile_y, tile_size_halved, tile_size_halved));
             fill_rect(&mut output, &colors[1], &(tile_x + tile_size_halved, tile_y, tile_size_halved, tile_size_halved));
             fill_rect(&mut output, &colors[2], &(tile_x + tile_size_halved, tile_y + tile_size_halved, tile_size_halved, tile_size_halved));
