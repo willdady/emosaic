@@ -39,3 +39,11 @@ Each 'tile' in the output image will be 16x16 by default. Provide a custom size 
 ```
 emosaic -s 32 /path/to/tile/images/ source.png
 ```
+
+### Tinting
+
+Use the tinting option, `-t`, to control the transparency of the source image overlayed on top of the the output mosaic. This can be useful to push the overall color of each tile closer to the color(s) it was sampled from in the source image. Value must be between 0 and 1. Default is 0.
+
+```
+emosaic -t 0.5 /path/to/tile/images/ source.png
+```
