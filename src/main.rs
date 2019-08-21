@@ -1,28 +1,25 @@
-mod colorutils;
-mod imageutils;
 mod mosaic;
 
 use std::path::{Path, PathBuf};
 
-use clap::{Arg, App};
-use image::{Rgba, ImageFormat};
+use clap::{App, Arg};
+use image::{ImageFormat, Rgba};
 use rand::prelude::*;
 
-use colorutils::{QuadRgba, NilRgba, compare_color};
-use imageutils::{read_images_in_dir, analyse_images};
-use mosaic::{render_4to1, render_random};
+use mosaic::{
+    color::{compare_color, NilRgba, QuadRgba},
+    image::{analyse_images, read_images_in_dir},
+    render_4to1, render_random,
+};
 
 struct Tile<T> {
     path_buf: PathBuf,
-    colors: T
+    colors: T,
 }
 
 impl<T> Tile<T> {
     fn new(path_buf: PathBuf, colors: T) -> Tile<T> {
-        Tile {
-            path_buf,
-            colors
-        }
+        Tile { path_buf, colors }
     }
 
     fn path(&self) -> &Path {
@@ -49,14 +46,12 @@ impl Tile<QuadRgba> {
 }
 
 pub struct TileSet<T> {
-    tiles: Vec<Tile<T>>
+    tiles: Vec<Tile<T>>,
 }
 
 impl<T> TileSet<T> {
     fn new() -> TileSet<T> {
-        TileSet::<T> {
-            tiles: vec!()
-        }
+        TileSet::<T> { tiles: vec![] }
     }
 
     fn push(&mut self, tile: Tile<T>) {
@@ -155,11 +150,13 @@ fn main() {
         Ok(val) => {
             let val = val.abs();
             if val > 1.0 {
-                eprintln!("Invalid value for 'tint-opacity': Value must be a float between 0 and 1");
+                eprintln!(
+                    "Invalid value for 'tint-opacity': Value must be a float between 0 and 1"
+                );
                 std::process::exit(1);
             }
             val
-        },
+        }
         _ => {
             eprintln!("Invalid value for 'tint-opacity': Value must be a float between 0 and 1");
             std::process::exit(1);
@@ -169,13 +166,12 @@ fn main() {
     // Open source image
     let img_path = Path::new(img);
     let img = match image::open(img_path) {
-        Ok(img) => img,
+        Ok(img) => img.to_rgba(),
         Err(e) => {
             eprintln!("Failed to open source image: {}", e);
             std::process::exit(1);
         }
     };
-    let img = img.to_rgba();
     // Read all images in tiles directory
     let tiles_dir = Path::new(tiles_dir_path);
     let images = read_images_in_dir(tiles_dir);
@@ -184,7 +180,7 @@ fn main() {
         "4to1" => {
             let tile_set = analyse_images(images);
             render_4to1(&img, &tile_set, tile_size, tint_opacity)
-        },
+        }
         "random" => {
             let mut tile_set = TileSet::<NilRgba>::new();
             for (path_buf, _) in images {
@@ -192,12 +188,14 @@ fn main() {
                 tile_set.push(tile);
             }
             render_random(&img, &tile_set, tile_size, tint_opacity)
-        },
+        }
         _ => {
             eprintln!("Invalid value for 'mode': Value must be 4to1 or random");
             std::process::exit(1);
         }
     };
 
-    output.save_with_format(output_path, ImageFormat::PNG).unwrap();
+    output
+        .save_with_format(output_path, ImageFormat::PNG)
+        .unwrap();
 }

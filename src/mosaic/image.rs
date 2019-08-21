@@ -1,36 +1,26 @@
-use std::io;
 use std::fs::{self};
+use std::io;
 use std::path::{Path, PathBuf};
-use std::thread;
 use std::sync::mpsc::channel;
+use std::thread;
 
-use image::{
-  DynamicImage,
-  RgbaImage,
-  Pixel,
-  GenericImage
-};
+use image::{DynamicImage, GenericImage, Pixel, RgbaImage};
 
-use crate::{
-    Tile,
-    TileSet,
-    colorutils::{
-        QuadRgba,
-        average_color
-    }
-};
+use super::color::{average_color, QuadRgba};
+use crate::{Tile, TileSet};
 
 pub fn fill_rect<T>(img: &mut T, color: &T::Pixel, rect: &(u32, u32, u32, u32))
-  where T: GenericImage
+where
+    T: GenericImage,
 {
-  let (x, y, width, height) = *rect;
-  for y2 in y..(y + height) {
-    for x2 in x..(x + width) {
-      let mut pixel = img.get_pixel(x2, y2);
-      pixel.blend(color);
-      img.put_pixel(x2, y2, pixel);
+    let (x, y, width, height) = *rect;
+    for y2 in y..(y + height) {
+        for x2 in x..(x + width) {
+            let mut pixel = img.get_pixel(x2, y2);
+            pixel.blend(color);
+            img.put_pixel(x2, y2, pixel);
+        }
     }
-  }
 }
 
 fn read_dir(dir: &Path) -> io::Result<Vec<PathBuf>> {
@@ -44,26 +34,26 @@ fn read_dir(dir: &Path) -> io::Result<Vec<PathBuf>> {
 }
 
 pub fn read_images_in_dir(path: &Path) -> Vec<(PathBuf, RgbaImage)> {
-    let mut images = vec!();
+    let mut images = vec![];
     for path_buf in read_dir(path).unwrap() {
         let path = path_buf.as_path();
         let img = match image::open(path) {
             Ok(im) => im,
-            _ => continue
+            _ => continue,
         };
         let img = match img {
             DynamicImage::ImageRgba8(im) => im as RgbaImage,
             DynamicImage::ImageRgb8(_) => img.to_rgba(),
-            _ => continue
+            _ => continue,
         };
         images.push((path_buf, img));
-    };
+    }
     images
 }
 
 pub fn analyse_images(images: Vec<(PathBuf, RgbaImage)>) -> TileSet<QuadRgba> {
     let (tx, rx) = channel();
-    let mut handles = vec!();
+    let mut handles = vec![];
     for chunk in images.chunks(500) {
         let tx = tx.clone();
         let owned_chuck = chunk.to_owned();
