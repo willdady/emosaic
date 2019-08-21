@@ -46,6 +46,12 @@ impl Tile<QuadRgba> {
     }
 }
 
+impl Tile<Rgba<u8>> {
+    fn compare(&self, color: Rgba<u8>) -> f64 {
+        compare_color(self.colors, color)
+    }
+}
+
 pub struct TileSet<T> {
     tiles: Vec<Tile<T>>,
 }
@@ -92,6 +98,73 @@ impl NearestTile<QuadRgba> for TileSet<QuadRgba> {
         }
         t
     }
+}
+
+impl NearestTile<Rgba<u8>> for TileSet<Rgba<u8>> {
+    fn nearest_tile(&self, colors: &Rgba<u8>) -> &Tile<Rgba<u8>> {
+        let mut d = std::f64::MAX;
+        let mut t = &self.tiles[0];
+        for tile in &self.tiles {
+            let d2 = tile.compare(*colors);
+            if d2 < d {
+                d = d2;
+                t = tile;
+            }
+        }
+        t
+    }
+}
+
+pub fn render_1to1(
+    source_img: &RgbaImage,
+    tile_set: &TileSet<Rgba<u8>>,
+    tile_size: u32,
+    tint_opacity: f64,
+) -> RgbaImage {
+    let mut output = RgbaImage::new(
+        source_img.width() * tile_size,
+        source_img.height() * tile_size,
+    );
+
+    // Cache mapping file path to resized tile image
+    let mut resize_cache = HashMap::new();
+
+    for y in 0..source_img.height() {
+        for x in 0..source_img.width() {
+            let mut colors = *source_img.get_pixel(x, y);
+
+            let tile = tile_set.nearest_tile(&colors);
+
+            // Calculate tile coordinates in output image
+            let tile_x = x * tile_size;
+            let tile_y = y * tile_size;
+
+            let path = tile.path();
+            match resize_cache.get(path) {
+                Some(tile_img) => {
+                    imageops::overlay(&mut output, tile_img, tile_x, tile_y);
+                }
+                _ => {
+                    let tile_img = ::image::open(path).unwrap();
+                    let tile_img =
+                        imageops::resize(&tile_img, tile_size, tile_size, FilterType::Lanczos3);
+                    imageops::overlay(&mut output, &tile_img, tile_x, tile_y);
+                    resize_cache.insert(path, tile_img);
+                }
+            };
+            // Apply tint to each quadrant of the output tile
+            if tint_opacity <= 0.0 {
+                continue;
+            }
+            colors[3] = (255_f64 * tint_opacity).round() as u8;
+            fill_rect(
+                &mut output,
+                &colors,
+                &(tile_x, tile_y, tile_size, tile_size),
+            );
+        }
+    }
+    output
 }
 
 pub fn render_4to1(

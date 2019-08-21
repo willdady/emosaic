@@ -7,8 +7,8 @@ use image::{ImageFormat};
 
 use mosaic::{
     color::{NilRgba},
-    image::{analyse_images, read_images_in_dir},
-    render_4to1, render_random, TileSet, Tile
+    image::{analyse, quad_analyse, read_images_in_dir},
+    render_1to1, render_4to1, render_random, TileSet, Tile
 };
 
 fn main() {
@@ -39,7 +39,7 @@ fn main() {
             .long("MODE")
             .value_name("STRING")
             .help("Mosaic mode to use")
-            .default_value("4to1"))
+            .default_value("1to1"))
         .arg(Arg::with_name("tiles_dir")
             .value_name("DIR")
             .help("Directory containing tile images")
@@ -90,15 +90,22 @@ fn main() {
             std::process::exit(1);
         }
     };
+
+    // TODO: If mode is 4to1 make sure source image is divisable by 2
+
     // Read all images in tiles directory
     let tiles_dir = Path::new(tiles_dir_path);
     let images = read_images_in_dir(tiles_dir);
 
     let output = match mode {
+        "1to1" => {
+            let tile_set = analyse(images);
+            render_1to1(&img, &tile_set, tile_size, tint_opacity)
+        },
         "4to1" => {
-            let tile_set = analyse_images(images);
+            let tile_set = quad_analyse(images);
             render_4to1(&img, &tile_set, tile_size, tint_opacity)
-        }
+        },
         "random" => {
             let mut tile_set = TileSet::<NilRgba>::new();
             for (path_buf, _) in images {
@@ -108,7 +115,7 @@ fn main() {
             render_random(&img, &tile_set, tile_size, tint_opacity)
         }
         _ => {
-            eprintln!("Invalid value for 'mode': Value must be 4to1 or random");
+            eprintln!("Invalid value for 'mode': Value must be 1to1, 4to1 or random");
             std::process::exit(1);
         }
     };

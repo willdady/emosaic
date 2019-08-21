@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::channel;
 use std::thread;
 
-use image::{DynamicImage, GenericImage, Pixel, RgbaImage};
+use image::{DynamicImage, GenericImage, Pixel, RgbaImage, Rgba};
 
 use super::color::{average_color, QuadRgba};
 use crate::{Tile, TileSet};
@@ -51,7 +51,36 @@ pub fn read_images_in_dir(path: &Path) -> Vec<(PathBuf, RgbaImage)> {
     images
 }
 
-pub fn analyse_images(images: Vec<(PathBuf, RgbaImage)>) -> TileSet<QuadRgba> {
+pub fn analyse(images: Vec<(PathBuf, RgbaImage)>) -> TileSet<Rgba<u8>> {
+    let (tx, rx) = channel();
+    let mut handles = vec![];
+    for chunk in images.chunks(500) {
+        let tx = tx.clone();
+        let owned_chuck = chunk.to_owned();
+        let handle = thread::spawn(move || {
+            for (path_buf, img) in owned_chuck {
+                let colors = average_color(&img, &(0, 0, img.width(), img.height()));
+                tx.send((path_buf, colors)).unwrap();
+            }
+        });
+        handles.push(handle);
+    }
+    let num_images = images.len();
+    for handle in handles {
+        handle.join().unwrap();
+    }
+    let mut tile_set = TileSet::new();
+    for (count, (path_buf, colors)) in rx.iter().enumerate() {
+        let tile = Tile::new(path_buf, colors);
+        tile_set.push(tile);
+        if count == num_images - 1 {
+            break;
+        }
+    }
+    tile_set
+}
+
+pub fn quad_analyse(images: Vec<(PathBuf, RgbaImage)>) -> TileSet<QuadRgba> {
     let (tx, rx) = channel();
     let mut handles = vec![];
     for chunk in images.chunks(500) {
