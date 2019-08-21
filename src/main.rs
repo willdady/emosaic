@@ -91,7 +91,11 @@ fn main() {
         }
     };
 
-    // TODO: If mode is 4to1 make sure source image is divisable by 2
+    // Validate image dimensions when mode = 4to1
+    if mode == "4to1" && img.width() % 2 != 0 || img.height() % 2 != 0 {
+        eprintln!("Invalid source dimensions ({}x{}): Dimensions must be divisible by 2 when mode is 4to1", img.width(), img.height());
+        std::process::exit(1);
+    }
 
     // Read all images in tiles directory
     let tiles_dir = Path::new(tiles_dir_path);
