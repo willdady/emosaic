@@ -6,24 +6,31 @@ use std::path::{Path, PathBuf};
 
 use clap::{Arg, App};
 use image::{Rgba, ImageFormat};
+use rand::prelude::*;
 
-use colorutils::{QuadRgba, compare_color};
+use colorutils::{QuadRgba, NilRgba, compare_color};
 use imageutils::{read_images_in_dir, analyse_images};
-use mosaic::{render};
+use mosaic::{render_4to1, render_random};
 
-struct Tile {
+struct Tile<T> {
     path_buf: PathBuf,
-    colors: QuadRgba
+    colors: T
 }
 
-impl Tile {
-    fn new(path_buf: PathBuf, colors: QuadRgba) -> Tile {
+impl<T> Tile<T> {
+    fn new(path_buf: PathBuf, colors: T) -> Tile<T> {
         Tile {
             path_buf,
             colors
         }
     }
 
+    fn path(&self) -> &Path {
+        self.path_buf.as_path()
+    }
+}
+
+impl Tile<QuadRgba> {
     fn compare_top_left(&self, color: Rgba<u8>) -> f64 {
         compare_color(self.colors[0], color)
     }
@@ -39,28 +46,36 @@ impl Tile {
     fn compare_bottom_left(&self, color: Rgba<u8>) -> f64 {
         compare_color(self.colors[3], color)
     }
-
-    fn path(&self) -> &Path {
-        self.path_buf.as_path()
-    }
 }
 
-pub struct TileSet {
-    tiles: Vec<Tile>
+pub struct TileSet<T> {
+    tiles: Vec<Tile<T>>
 }
 
-impl TileSet {
-    fn new() -> TileSet {
-        TileSet {
+impl<T> TileSet<T> {
+    fn new() -> TileSet<T> {
+        TileSet::<T> {
             tiles: vec!()
         }
     }
 
-    fn push(&mut self, tile: Tile) {
+    fn push(&mut self, tile: Tile<T>) {
         self.tiles.push(tile);
     }
 
-    fn closest_tile(&self, colors: &QuadRgba) -> &Tile {
+    fn random_tile(&self) -> &Tile<T> {
+        let mut rng = thread_rng();
+        let i = rng.gen_range(0, self.tiles.len());
+        &self.tiles[i]
+    }
+}
+
+trait NearestTile<T> {
+    fn nearest_tile(&self, colors: &T) -> &Tile<T>;
+}
+
+impl NearestTile<QuadRgba> for TileSet<QuadRgba> {
+    fn nearest_tile(&self, colors: &QuadRgba) -> &Tile<QuadRgba> {
         let mut d = std::f64::MAX;
         let mut t = &self.tiles[0];
 
@@ -106,6 +121,12 @@ fn main() {
             .value_name("PATH")
             .help("Output image path")
             .default_value("./output.png"))
+        .arg(Arg::with_name("mode")
+            .short("m")
+            .long("MODE")
+            .value_name("STRING")
+            .help("Mosaic mode to use")
+            .default_value("4to1"))
         .arg(Arg::with_name("tiles_dir")
             .value_name("DIR")
             .help("Directory containing tile images")
@@ -120,6 +141,7 @@ fn main() {
     let img = matches.value_of("IMG").unwrap();
     let output_path = matches.value_of("output_path").unwrap();
     let tiles_dir_path = matches.value_of("tiles_dir").unwrap();
+    let mode = matches.value_of("mode").unwrap();
 
     let tile_size = match matches.value_of("tile_size").unwrap().parse::<u32>() {
         Ok(val) => val,
@@ -157,10 +179,25 @@ fn main() {
     // Read all images in tiles directory
     let tiles_dir = Path::new(tiles_dir_path);
     let images = read_images_in_dir(tiles_dir);
-    // Create TileSet from tile images
-    let tile_set = analyse_images(images);
 
-    let output = render(&img, &tile_set, tile_size, tint_opacity);
+    let output = match mode {
+        "4to1" => {
+            let tile_set = analyse_images(images);
+            render_4to1(&img, &tile_set, tile_size, tint_opacity)
+        },
+        "random" => {
+            let mut tile_set = TileSet::<NilRgba>::new();
+            for (path_buf, _) in images {
+                let tile = Tile::<NilRgba>::new(path_buf, []);
+                tile_set.push(tile);
+            }
+            render_random(&img, &tile_set, tile_size, tint_opacity)
+        },
+        _ => {
+            eprintln!("Invalid value for 'mode': Value must be 4to1 or random");
+            std::process::exit(1);
+        }
+    };
 
     output.save_with_format(output_path, ImageFormat::PNG).unwrap();
 }

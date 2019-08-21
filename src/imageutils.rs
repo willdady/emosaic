@@ -61,7 +61,7 @@ pub fn read_images_in_dir(path: &Path) -> Vec<(PathBuf, RgbaImage)> {
     images
 }
 
-pub fn analyse_images(images: Vec<(PathBuf, RgbaImage)>) -> TileSet {
+pub fn analyse_images(images: Vec<(PathBuf, RgbaImage)>) -> TileSet<QuadRgba> {
     let (tx, rx) = channel();
     let mut handles = vec!();
     for chunk in images.chunks(500) {
