@@ -6,7 +6,6 @@ use clap::{App, Arg};
 use image::{ImageFormat};
 
 use mosaic::{
-    color::{NilRgba},
     image::{analyse, quad_analyse, read_images_in_dir},
     render_1to1, render_4to1, render_random, TileSet, Tile
 };
@@ -111,9 +110,9 @@ fn main() {
             render_4to1(&img, &tile_set, tile_size, tint_opacity)
         },
         "random" => {
-            let mut tile_set = TileSet::<NilRgba>::new();
+            let mut tile_set = TileSet::<()>::new();
             for (path_buf, _) in images {
-                let tile = Tile::<NilRgba>::new(path_buf, []);
+                let tile = Tile::<()>::new(path_buf, ());
                 tile_set.push(tile);
             }
             render_random(&img, &tile_set, tile_size, tint_opacity)

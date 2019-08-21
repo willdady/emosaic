@@ -9,7 +9,7 @@ use ::image::imageops;
 use ::image::{FilterType, RgbaImage, Rgba};
 
 use crate::{
-    mosaic::color::{NilRgba, QuadRgba, compare_color},
+    mosaic::color::{QuadRgba, compare_color},
     mosaic::image::fill_rect
 };
 
@@ -261,7 +261,7 @@ pub fn render_4to1(
 
 pub fn render_random(
     source_img: &RgbaImage,
-    tile_set: &TileSet<NilRgba>,
+    tile_set: &TileSet<()>,
     tile_size: u32,
     tint_opacity: f64,
 ) -> RgbaImage {

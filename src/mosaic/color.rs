@@ -1,7 +1,6 @@
 use image::{Rgba, RgbaImage};
 
 pub type QuadRgba = [Rgba<u8>; 4];
-pub type NilRgba = [Rgba<u8>; 0];
 
 pub fn average_color(img: &RgbaImage, rect: &(u32, u32, u32, u32)) -> Rgba<u8> {
     let (left, top, width, height) = rect;
