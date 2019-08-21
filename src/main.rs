@@ -1,97 +1,15 @@
 mod mosaic;
 
-use std::path::{Path, PathBuf};
+use std::path::{Path};
 
 use clap::{App, Arg};
-use image::{ImageFormat, Rgba};
-use rand::prelude::*;
+use image::{ImageFormat};
 
 use mosaic::{
-    color::{compare_color, NilRgba, QuadRgba},
+    color::{NilRgba},
     image::{analyse_images, read_images_in_dir},
-    render_4to1, render_random,
+    render_4to1, render_random, TileSet, Tile
 };
-
-struct Tile<T> {
-    path_buf: PathBuf,
-    colors: T,
-}
-
-impl<T> Tile<T> {
-    fn new(path_buf: PathBuf, colors: T) -> Tile<T> {
-        Tile { path_buf, colors }
-    }
-
-    fn path(&self) -> &Path {
-        self.path_buf.as_path()
-    }
-}
-
-impl Tile<QuadRgba> {
-    fn compare_top_left(&self, color: Rgba<u8>) -> f64 {
-        compare_color(self.colors[0], color)
-    }
-
-    fn compare_top_right(&self, color: Rgba<u8>) -> f64 {
-        compare_color(self.colors[1], color)
-    }
-
-    fn compare_bottom_right(&self, color: Rgba<u8>) -> f64 {
-        compare_color(self.colors[2], color)
-    }
-
-    fn compare_bottom_left(&self, color: Rgba<u8>) -> f64 {
-        compare_color(self.colors[3], color)
-    }
-}
-
-pub struct TileSet<T> {
-    tiles: Vec<Tile<T>>,
-}
-
-impl<T> TileSet<T> {
-    fn new() -> TileSet<T> {
-        TileSet::<T> { tiles: vec![] }
-    }
-
-    fn push(&mut self, tile: Tile<T>) {
-        self.tiles.push(tile);
-    }
-
-    fn random_tile(&self) -> &Tile<T> {
-        let mut rng = thread_rng();
-        let i = rng.gen_range(0, self.tiles.len());
-        &self.tiles[i]
-    }
-}
-
-trait NearestTile<T> {
-    fn nearest_tile(&self, colors: &T) -> &Tile<T>;
-}
-
-impl NearestTile<QuadRgba> for TileSet<QuadRgba> {
-    fn nearest_tile(&self, colors: &QuadRgba) -> &Tile<QuadRgba> {
-        let mut d = std::f64::MAX;
-        let mut t = &self.tiles[0];
-
-        for tile in &self.tiles {
-            let [top_left, top_right, bottom_right, bottom_left] = colors;
-
-            let tl2 = tile.compare_top_left(*top_left);
-            let tr2 = tile.compare_top_right(*top_right);
-            let br2 = tile.compare_bottom_right(*bottom_right);
-            let bl2 = tile.compare_bottom_left(*bottom_left);
-
-            let d2 = tl2 + tr2 + br2 + bl2;
-
-            if d2 < d {
-                d = d2;
-                t = tile;
-            }
-        }
-        t
-    }
-}
 
 fn main() {
     let matches = App::new("emosaic")
