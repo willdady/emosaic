@@ -1,6 +1,6 @@
 [package]
 name = "emosaic"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Will Dady <willdady@gmail.com>"]
 edition = "2018"
 
@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 image = "0.22.0"
 clap = "2.33.0"
+rand = "0.7.0"
