@@ -80,7 +80,7 @@ fn main() {
         }
     };
 
-    // Open source image
+    // Open the source image
     let img_path = Path::new(img);
     let img = match image::open(img_path) {
         Ok(img) => img.to_rgba(),
@@ -90,7 +90,7 @@ fn main() {
         }
     };
 
-    // Validate image dimensions when mode = 4to1
+    // Validate the source image dimensions when mode = 4to1
     if mode == "4to1" && img.width() % 2 != 0 || img.height() % 2 != 0 {
         eprintln!("Invalid source dimensions ({}x{}): Dimensions must be divisible by 2 when mode is 4to1", img.width(), img.height());
         std::process::exit(1);
