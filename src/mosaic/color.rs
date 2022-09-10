@@ -1,7 +1,7 @@
 use image::{Rgb, RgbImage};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct SerializableRgb(u8, u8, u8);
 
 pub trait IntoSerializableRgb {
@@ -41,7 +41,7 @@ pub fn average_color(img: &RgbImage, rect: &(u32, u32, u32, u32)) -> Rgb<u8> {
     Rgb([r, g, b])
 }
 
-pub fn compare_color(a: [u8; 3], b: [u8; 3]) -> f64 {
+pub fn compare_color(a: &[u8; 3], b: &[u8; 3]) -> f64 {
     let r1 = f64::from(a[0]);
     let g1 = f64::from(a[1]);
     let b1 = f64::from(a[2]);

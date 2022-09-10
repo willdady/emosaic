@@ -103,11 +103,11 @@ fn main() {
     let output = match mode {
         "1to1" => {
             let tile_set = analyse(images);
-            render_1to1(&img, &tile_set, tile_size, tint_opacity)
+            render_1to1(&img, &tile_set, tile_size)
         }
         "4to1" => {
             let tile_set = quad_analyse(images);
-            render_4to1(&img, &tile_set, tile_size, tint_opacity)
+            render_4to1(&img, &tile_set, tile_size)
         }
         "random" => {
             let mut tile_set = TileSet::<()>::new();

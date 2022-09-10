@@ -5,10 +5,13 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use ::image::imageops;
-use ::image::{FilterType, Rgb, RgbImage};
+use ::image::{FilterType, RgbImage};
+use color::SerializableRgb;
 use rand::prelude::*;
 
 use crate::{mosaic::color::compare_color, mosaic::image::fill_rect};
+
+use self::color::IntoSerializableRgb;
 
 pub struct Tile<T> {
     path_buf: PathBuf,
@@ -25,27 +28,27 @@ impl<T> Tile<T> {
     }
 }
 
-impl Tile<[Rgb<u8>; 4]> {
-    fn compare_top_left(&self, color: Rgb<u8>) -> f64 {
-        compare_color(self.colors[0].0, color.0)
+impl Tile<[SerializableRgb; 4]> {
+    fn compare_top_left(&self, color: SerializableRgb) -> f64 {
+        compare_color(&self.colors[0].into(), &color.into())
     }
 
-    fn compare_top_right(&self, color: Rgb<u8>) -> f64 {
-        compare_color(self.colors[1].0, color.0)
+    fn compare_top_right(&self, color: SerializableRgb) -> f64 {
+        compare_color(&self.colors[1].into(), &color.into())
     }
 
-    fn compare_bottom_right(&self, color: Rgb<u8>) -> f64 {
-        compare_color(self.colors[2].0, color.0)
+    fn compare_bottom_right(&self, color: SerializableRgb) -> f64 {
+        compare_color(&self.colors[2].into(), &color.into())
     }
 
-    fn compare_bottom_left(&self, color: Rgb<u8>) -> f64 {
-        compare_color(self.colors[3].0, color.0)
+    fn compare_bottom_left(&self, color: SerializableRgb) -> f64 {
+        compare_color(&self.colors[3].into(), &color.into())
     }
 }
 
-impl Tile<Rgb<u8>> {
-    fn compare(&self, color: Rgb<u8>) -> f64 {
-        compare_color(self.colors.0, color.0)
+impl Tile<SerializableRgb> {
+    fn compare(&self, color: SerializableRgb) -> f64 {
+        compare_color(&self.colors.into(), &color.into())
     }
 }
 
@@ -73,8 +76,8 @@ trait NearestTile<T> {
     fn nearest_tile(&self, colors: &T) -> &Tile<T>;
 }
 
-impl NearestTile<[Rgb<u8>; 4]> for TileSet<[Rgb<u8>; 4]> {
-    fn nearest_tile(&self, colors: &[Rgb<u8>; 4]) -> &Tile<[Rgb<u8>; 4]> {
+impl NearestTile<[SerializableRgb; 4]> for TileSet<[SerializableRgb; 4]> {
+    fn nearest_tile(&self, colors: &[SerializableRgb; 4]) -> &Tile<[SerializableRgb; 4]> {
         let mut d = std::f64::MAX;
         let mut t = &self.tiles[0];
 
@@ -97,8 +100,8 @@ impl NearestTile<[Rgb<u8>; 4]> for TileSet<[Rgb<u8>; 4]> {
     }
 }
 
-impl NearestTile<Rgb<u8>> for TileSet<Rgb<u8>> {
-    fn nearest_tile(&self, colors: &Rgb<u8>) -> &Tile<Rgb<u8>> {
+impl NearestTile<SerializableRgb> for TileSet<SerializableRgb> {
+    fn nearest_tile(&self, colors: &SerializableRgb) -> &Tile<SerializableRgb> {
         let mut d = std::f64::MAX;
         let mut t = &self.tiles[0];
         for tile in &self.tiles {
@@ -114,9 +117,8 @@ impl NearestTile<Rgb<u8>> for TileSet<Rgb<u8>> {
 
 pub fn render_1to1(
     source_img: &RgbImage,
-    tile_set: &TileSet<Rgb<u8>>,
+    tile_set: &TileSet<SerializableRgb>,
     tile_size: u32,
-    tint_opacity: f64,
 ) -> RgbImage {
     let mut output = RgbImage::new(
         source_img.width() * tile_size,
@@ -128,9 +130,9 @@ pub fn render_1to1(
 
     for y in 0..source_img.height() {
         for x in 0..source_img.width() {
-            let mut colors = *source_img.get_pixel(x, y);
+            let color = *source_img.get_pixel(x, y);
 
-            let tile = tile_set.nearest_tile(&colors);
+            let tile = tile_set.nearest_tile(&color.into_serializable_rgb());
 
             // Calculate tile coordinates in output image
             let tile_x = x * tile_size;
@@ -149,16 +151,6 @@ pub fn render_1to1(
                     resize_cache.insert(path, tile_img);
                 }
             };
-            // Apply tint to each quadrant of the output tile
-            if tint_opacity <= 0.0 {
-                continue;
-            }
-            colors[3] = (255_f64 * tint_opacity).round() as u8;
-            fill_rect(
-                &mut output,
-                &colors,
-                &(tile_x, tile_y, tile_size, tile_size),
-            );
         }
     }
     output
@@ -166,15 +158,14 @@ pub fn render_1to1(
 
 pub fn render_4to1(
     source_img: &RgbImage,
-    tile_set: &TileSet<[Rgb<u8>; 4]>,
+    tile_set: &TileSet<[SerializableRgb; 4]>,
     tile_size: u32,
-    tint_opacity: f64,
 ) -> RgbImage {
     let tile_size_halved = tile_size / 2;
 
     let mut output = RgbImage::new(
-        source_img.width() * tile_size / 2,
-        source_img.height() * tile_size / 2,
+        source_img.width() * tile_size_halved,
+        source_img.height() * tile_size_halved,
     );
 
     // Cache mapping file path to resized tile image
@@ -182,11 +173,11 @@ pub fn render_4to1(
 
     for y in (0..source_img.height()).step_by(2) {
         for x in (0..source_img.width()).step_by(2) {
-            let mut colors: [Rgb<u8>; 4] = [
-                *source_img.get_pixel(x, y),
-                *source_img.get_pixel(x + 1, y),
-                *source_img.get_pixel(x + 1, y + 1),
-                *source_img.get_pixel(x, y + 1),
+            let colors: [SerializableRgb; 4] = [
+                (*source_img.get_pixel(x, y)).into_serializable_rgb(),
+                (*source_img.get_pixel(x + 1, y)).into_serializable_rgb(),
+                (*source_img.get_pixel(x + 1, y + 1)).into_serializable_rgb(),
+                (*source_img.get_pixel(x, y + 1)).into_serializable_rgb(),
             ];
 
             let tile = tile_set.nearest_tile(&colors);
@@ -208,49 +199,6 @@ pub fn render_4to1(
                     resize_cache.insert(path, tile_img);
                 }
             };
-            // Apply tint to each quadrant of the output tile
-            if tint_opacity <= 0.0 {
-                continue;
-            }
-            colors[0][3] = (255_f64 * tint_opacity).round() as u8;
-            colors[1][3] = (255_f64 * tint_opacity).round() as u8;
-            colors[2][3] = (255_f64 * tint_opacity).round() as u8;
-            colors[3][3] = (255_f64 * tint_opacity).round() as u8;
-            fill_rect(
-                &mut output,
-                &colors[0],
-                &(tile_x, tile_y, tile_size_halved, tile_size_halved),
-            );
-            fill_rect(
-                &mut output,
-                &colors[1],
-                &(
-                    tile_x + tile_size_halved,
-                    tile_y,
-                    tile_size_halved,
-                    tile_size_halved,
-                ),
-            );
-            fill_rect(
-                &mut output,
-                &colors[2],
-                &(
-                    tile_x + tile_size_halved,
-                    tile_y + tile_size_halved,
-                    tile_size_halved,
-                    tile_size_halved,
-                ),
-            );
-            fill_rect(
-                &mut output,
-                &colors[3],
-                &(
-                    tile_x,
-                    tile_y + tile_size_halved,
-                    tile_size_halved,
-                    tile_size_halved,
-                ),
-            );
         }
     }
     output

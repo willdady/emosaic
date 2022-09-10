@@ -4,9 +4,9 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::channel;
 use std::thread;
 
-use image::{DynamicImage, GenericImage, Pixel, Rgb, RgbImage};
+use image::{DynamicImage, GenericImage, Pixel, RgbImage};
 
-use super::color::average_color;
+use super::color::{average_color, IntoSerializableRgb, SerializableRgb};
 use crate::{Tile, TileSet};
 
 pub fn fill_rect<T>(img: &mut T, color: &T::Pixel, rect: &(u32, u32, u32, u32))
@@ -54,7 +54,7 @@ pub fn read_images_in_dir(path: &Path) -> Vec<(PathBuf, RgbImage)> {
     images
 }
 
-pub fn analyse(images: Vec<(PathBuf, RgbImage)>) -> TileSet<Rgb<u8>> {
+pub fn analyse(images: Vec<(PathBuf, RgbImage)>) -> TileSet<SerializableRgb> {
     let (tx, rx) = channel();
     let mut handles = vec![];
     for chunk in images.chunks(500) {
@@ -74,7 +74,7 @@ pub fn analyse(images: Vec<(PathBuf, RgbImage)>) -> TileSet<Rgb<u8>> {
     }
     let mut tile_set = TileSet::new();
     for (count, (path_buf, colors)) in rx.iter().enumerate() {
-        let tile = Tile::new(path_buf, colors);
+        let tile = Tile::new(path_buf, colors.into_serializable_rgb());
         tile_set.push(tile);
         if count == num_images - 1 {
             break;
@@ -83,7 +83,7 @@ pub fn analyse(images: Vec<(PathBuf, RgbImage)>) -> TileSet<Rgb<u8>> {
     tile_set
 }
 
-pub fn quad_analyse(images: Vec<(PathBuf, RgbImage)>) -> TileSet<[Rgb<u8>; 4]> {
+pub fn quad_analyse(images: Vec<(PathBuf, RgbImage)>) -> TileSet<[SerializableRgb; 4]> {
     let (tx, rx) = channel();
     let mut handles = vec![];
     for chunk in images.chunks(500) {
@@ -104,7 +104,12 @@ pub fn quad_analyse(images: Vec<(PathBuf, RgbImage)>) -> TileSet<[Rgb<u8>; 4]> {
                 let bottom_right = average_color(&img, &rect_bottom_right);
                 let bottom_left = average_color(&img, &rect_bottom_left);
 
-                let colors: [Rgb<u8>; 4] = [top_left, top_right, bottom_right, bottom_left];
+                let colors: [SerializableRgb; 4] = [
+                    top_left.into_serializable_rgb(),
+                    top_right.into_serializable_rgb(),
+                    bottom_right.into_serializable_rgb(),
+                    bottom_left.into_serializable_rgb(),
+                ];
 
                 tx.send((path_buf, colors)).unwrap();
             }
