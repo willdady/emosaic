@@ -4,9 +4,9 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::channel;
 use std::thread;
 
-use image::{DynamicImage, GenericImage, Pixel, RgbaImage, Rgba};
+use image::{DynamicImage, GenericImage, Pixel, Rgb, RgbImage};
 
-use super::color::{average_color, QuadRgba};
+use super::color::average_color;
 use crate::{Tile, TileSet};
 
 pub fn fill_rect<T>(img: &mut T, color: &T::Pixel, rect: &(u32, u32, u32, u32))
@@ -33,7 +33,7 @@ fn read_dir(dir: &Path) -> io::Result<Vec<PathBuf>> {
     Ok(paths)
 }
 
-pub fn read_images_in_dir(path: &Path) -> Vec<(PathBuf, RgbaImage)> {
+pub fn read_images_in_dir(path: &Path) -> Vec<(PathBuf, RgbImage)> {
     let mut images = vec![];
     for path_buf in read_dir(path).unwrap() {
         let path = path_buf.as_path();
@@ -41,9 +41,12 @@ pub fn read_images_in_dir(path: &Path) -> Vec<(PathBuf, RgbaImage)> {
             Ok(im) => im,
             _ => continue,
         };
-        let img = match img {
-            DynamicImage::ImageRgba8(im) => im as RgbaImage,
-            DynamicImage::ImageRgb8(_) => img.to_rgba(),
+        let img: RgbImage = match img {
+            DynamicImage::ImageRgba8(_) => match img.as_rgb8() {
+                Some(x) => x.to_owned(),
+                _ => continue,
+            },
+            DynamicImage::ImageRgb8(im) => im,
             _ => continue,
         };
         images.push((path_buf, img));
@@ -51,7 +54,7 @@ pub fn read_images_in_dir(path: &Path) -> Vec<(PathBuf, RgbaImage)> {
     images
 }
 
-pub fn analyse(images: Vec<(PathBuf, RgbaImage)>) -> TileSet<Rgba<u8>> {
+pub fn analyse(images: Vec<(PathBuf, RgbImage)>) -> TileSet<Rgb<u8>> {
     let (tx, rx) = channel();
     let mut handles = vec![];
     for chunk in images.chunks(500) {
@@ -80,7 +83,7 @@ pub fn analyse(images: Vec<(PathBuf, RgbaImage)>) -> TileSet<Rgba<u8>> {
     tile_set
 }
 
-pub fn quad_analyse(images: Vec<(PathBuf, RgbaImage)>) -> TileSet<QuadRgba> {
+pub fn quad_analyse(images: Vec<(PathBuf, RgbImage)>) -> TileSet<[Rgb<u8>; 4]> {
     let (tx, rx) = channel();
     let mut handles = vec![];
     for chunk in images.chunks(500) {
@@ -101,7 +104,7 @@ pub fn quad_analyse(images: Vec<(PathBuf, RgbaImage)>) -> TileSet<QuadRgba> {
                 let bottom_right = average_color(&img, &rect_bottom_right);
                 let bottom_left = average_color(&img, &rect_bottom_left);
 
-                let colors: QuadRgba = [top_left, top_right, bottom_right, bottom_left];
+                let colors: [Rgb<u8>; 4] = [top_left, top_right, bottom_right, bottom_left];
 
                 tx.send((path_buf, colors)).unwrap();
             }

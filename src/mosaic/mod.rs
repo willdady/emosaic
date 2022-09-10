@@ -4,14 +4,11 @@ pub mod image;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use rand::prelude::*;
 use ::image::imageops;
-use ::image::{FilterType, RgbaImage, Rgba};
+use ::image::{FilterType, Rgb, RgbImage};
+use rand::prelude::*;
 
-use crate::{
-    mosaic::color::{QuadRgba, compare_color},
-    mosaic::image::fill_rect
-};
+use crate::{mosaic::color::compare_color, mosaic::image::fill_rect};
 
 pub struct Tile<T> {
     path_buf: PathBuf,
@@ -28,27 +25,27 @@ impl<T> Tile<T> {
     }
 }
 
-impl Tile<QuadRgba> {
-    fn compare_top_left(&self, color: Rgba<u8>) -> f64 {
-        compare_color(self.colors[0], color)
+impl Tile<[Rgb<u8>; 4]> {
+    fn compare_top_left(&self, color: Rgb<u8>) -> f64 {
+        compare_color(self.colors[0].0, color.0)
     }
 
-    fn compare_top_right(&self, color: Rgba<u8>) -> f64 {
-        compare_color(self.colors[1], color)
+    fn compare_top_right(&self, color: Rgb<u8>) -> f64 {
+        compare_color(self.colors[1].0, color.0)
     }
 
-    fn compare_bottom_right(&self, color: Rgba<u8>) -> f64 {
-        compare_color(self.colors[2], color)
+    fn compare_bottom_right(&self, color: Rgb<u8>) -> f64 {
+        compare_color(self.colors[2].0, color.0)
     }
 
-    fn compare_bottom_left(&self, color: Rgba<u8>) -> f64 {
-        compare_color(self.colors[3], color)
+    fn compare_bottom_left(&self, color: Rgb<u8>) -> f64 {
+        compare_color(self.colors[3].0, color.0)
     }
 }
 
-impl Tile<Rgba<u8>> {
-    fn compare(&self, color: Rgba<u8>) -> f64 {
-        compare_color(self.colors, color)
+impl Tile<Rgb<u8>> {
+    fn compare(&self, color: Rgb<u8>) -> f64 {
+        compare_color(self.colors.0, color.0)
     }
 }
 
@@ -76,8 +73,8 @@ trait NearestTile<T> {
     fn nearest_tile(&self, colors: &T) -> &Tile<T>;
 }
 
-impl NearestTile<QuadRgba> for TileSet<QuadRgba> {
-    fn nearest_tile(&self, colors: &QuadRgba) -> &Tile<QuadRgba> {
+impl NearestTile<[Rgb<u8>; 4]> for TileSet<[Rgb<u8>; 4]> {
+    fn nearest_tile(&self, colors: &[Rgb<u8>; 4]) -> &Tile<[Rgb<u8>; 4]> {
         let mut d = std::f64::MAX;
         let mut t = &self.tiles[0];
 
@@ -100,8 +97,8 @@ impl NearestTile<QuadRgba> for TileSet<QuadRgba> {
     }
 }
 
-impl NearestTile<Rgba<u8>> for TileSet<Rgba<u8>> {
-    fn nearest_tile(&self, colors: &Rgba<u8>) -> &Tile<Rgba<u8>> {
+impl NearestTile<Rgb<u8>> for TileSet<Rgb<u8>> {
+    fn nearest_tile(&self, colors: &Rgb<u8>) -> &Tile<Rgb<u8>> {
         let mut d = std::f64::MAX;
         let mut t = &self.tiles[0];
         for tile in &self.tiles {
@@ -116,12 +113,12 @@ impl NearestTile<Rgba<u8>> for TileSet<Rgba<u8>> {
 }
 
 pub fn render_1to1(
-    source_img: &RgbaImage,
-    tile_set: &TileSet<Rgba<u8>>,
+    source_img: &RgbImage,
+    tile_set: &TileSet<Rgb<u8>>,
     tile_size: u32,
     tint_opacity: f64,
-) -> RgbaImage {
-    let mut output = RgbaImage::new(
+) -> RgbImage {
+    let mut output = RgbImage::new(
         source_img.width() * tile_size,
         source_img.height() * tile_size,
     );
@@ -145,7 +142,7 @@ pub fn render_1to1(
                     imageops::overlay(&mut output, tile_img, tile_x, tile_y);
                 }
                 _ => {
-                    let tile_img = ::image::open(path).unwrap();
+                    let tile_img = ::image::open(path).unwrap().to_rgb();
                     let tile_img =
                         imageops::resize(&tile_img, tile_size, tile_size, FilterType::Lanczos3);
                     imageops::overlay(&mut output, &tile_img, tile_x, tile_y);
@@ -168,14 +165,14 @@ pub fn render_1to1(
 }
 
 pub fn render_4to1(
-    source_img: &RgbaImage,
-    tile_set: &TileSet<QuadRgba>,
+    source_img: &RgbImage,
+    tile_set: &TileSet<[Rgb<u8>; 4]>,
     tile_size: u32,
     tint_opacity: f64,
-) -> RgbaImage {
+) -> RgbImage {
     let tile_size_halved = tile_size / 2;
 
-    let mut output = RgbaImage::new(
+    let mut output = RgbImage::new(
         source_img.width() * tile_size / 2,
         source_img.height() * tile_size / 2,
     );
@@ -185,7 +182,7 @@ pub fn render_4to1(
 
     for y in (0..source_img.height()).step_by(2) {
         for x in (0..source_img.width()).step_by(2) {
-            let mut colors: QuadRgba = [
+            let mut colors: [Rgb<u8>; 4] = [
                 *source_img.get_pixel(x, y),
                 *source_img.get_pixel(x + 1, y),
                 *source_img.get_pixel(x + 1, y + 1),
@@ -204,7 +201,7 @@ pub fn render_4to1(
                     imageops::overlay(&mut output, tile_img, tile_x, tile_y);
                 }
                 _ => {
-                    let tile_img = ::image::open(path).unwrap();
+                    let tile_img = ::image::open(path).unwrap().to_rgb();
                     let tile_img =
                         imageops::resize(&tile_img, tile_size, tile_size, FilterType::Lanczos3);
                     imageops::overlay(&mut output, &tile_img, tile_x, tile_y);
@@ -260,12 +257,12 @@ pub fn render_4to1(
 }
 
 pub fn render_random(
-    source_img: &RgbaImage,
+    source_img: &RgbImage,
     tile_set: &TileSet<()>,
     tile_size: u32,
     tint_opacity: f64,
-) -> RgbaImage {
-    let mut output = RgbaImage::new(
+) -> RgbImage {
+    let mut output = RgbImage::new(
         source_img.width() * tile_size,
         source_img.height() * tile_size,
     );
@@ -289,7 +286,7 @@ pub fn render_random(
                     );
                 }
                 _ => {
-                    let tile_img = ::image::open(path).unwrap();
+                    let tile_img = ::image::open(path).unwrap().to_rgb();
                     let tile_img =
                         imageops::resize(&tile_img, tile_size, tile_size, FilterType::Lanczos3);
                     imageops::overlay(

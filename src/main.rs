@@ -1,13 +1,13 @@
 mod mosaic;
 
-use std::path::{Path};
+use std::path::Path;
 
 use clap::{App, Arg};
-use image::{ImageFormat};
+use image::ImageFormat;
 
 use mosaic::{
     image::{analyse, quad_analyse, read_images_in_dir},
-    render_1to1, render_4to1, render_random, TileSet, Tile
+    render_1to1, render_4to1, render_random, Tile, TileSet,
 };
 
 fn main() {
@@ -83,7 +83,7 @@ fn main() {
     // Open the source image
     let img_path = Path::new(img);
     let img = match image::open(img_path) {
-        Ok(img) => img.to_rgba(),
+        Ok(img) => img.to_rgb(),
         Err(e) => {
             eprintln!("Failed to open source image: {}", e);
             std::process::exit(1);
@@ -91,7 +91,7 @@ fn main() {
     };
 
     // Validate the source image dimensions when mode = 4to1
-    if mode == "4to1" && img.width() % 2 != 0 || img.height() % 2 != 0 {
+    if mode == "4to1" && (img.width() % 2 != 0 || img.height() % 2 != 0) {
         eprintln!("Invalid source dimensions ({}x{}): Dimensions must be divisible by 2 when mode is 4to1", img.width(), img.height());
         std::process::exit(1);
     }
@@ -104,11 +104,11 @@ fn main() {
         "1to1" => {
             let tile_set = analyse(images);
             render_1to1(&img, &tile_set, tile_size, tint_opacity)
-        },
+        }
         "4to1" => {
             let tile_set = quad_analyse(images);
             render_4to1(&img, &tile_set, tile_size, tint_opacity)
-        },
+        }
         "random" => {
             let mut tile_set = TileSet::<()>::new();
             for (path_buf, _) in images {
