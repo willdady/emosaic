@@ -8,11 +8,13 @@ use ::image::imageops;
 use ::image::{FilterType, RgbImage};
 use color::SerializableRgb;
 use rand::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::{mosaic::color::compare_color, mosaic::image::fill_rect};
 
 use self::color::IntoSerializableRgb;
 
+#[derive(Serialize, Deserialize)]
 pub struct Tile<T> {
     path_buf: PathBuf,
     colors: T,
@@ -52,6 +54,7 @@ impl Tile<SerializableRgb> {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct TileSet<T> {
     tiles: Vec<Tile<T>>,
 }

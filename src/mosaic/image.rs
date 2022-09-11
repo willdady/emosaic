@@ -54,7 +54,7 @@ pub fn read_images_in_dir(path: &Path) -> Vec<(PathBuf, RgbImage)> {
     images
 }
 
-pub fn analyse(images: Vec<(PathBuf, RgbImage)>) -> TileSet<SerializableRgb> {
+pub fn analyse_1to1(images: Vec<(PathBuf, RgbImage)>) -> TileSet<SerializableRgb> {
     let (tx, rx) = channel();
     let mut handles = vec![];
     for chunk in images.chunks(500) {
@@ -83,7 +83,7 @@ pub fn analyse(images: Vec<(PathBuf, RgbImage)>) -> TileSet<SerializableRgb> {
     tile_set
 }
 
-pub fn quad_analyse(images: Vec<(PathBuf, RgbImage)>) -> TileSet<[SerializableRgb; 4]> {
+pub fn analyse_4to1(images: Vec<(PathBuf, RgbImage)>) -> TileSet<[SerializableRgb; 4]> {
     let (tx, rx) = channel();
     let mut handles = vec![];
     for chunk in images.chunks(500) {

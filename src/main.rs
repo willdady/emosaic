@@ -1,14 +1,28 @@
 mod mosaic;
 
-use std::path::Path;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 use clap::{App, Arg};
-use image::ImageFormat;
+use image::{ImageFormat, RgbImage};
 
 use mosaic::{
-    image::{analyse, quad_analyse, read_images_in_dir},
+    image::{analyse_1to1, analyse_4to1, read_images_in_dir},
     render_1to1, render_4to1, render_random, Tile, TileSet,
 };
+use serde::Serialize;
+
+fn generate_tile_set<T: Serialize>(
+    tiles_path: &Path,
+    cache_path: &Path,
+    analyse: fn(Vec<(PathBuf, RgbImage)>) -> TileSet<T>,
+) -> TileSet<T> {
+    let images = read_images_in_dir(tiles_path);
+    let tile_set = analyse(images);
+    let encoded_tile_set = bincode::serialize(&tile_set).unwrap();
+    fs::write(&cache_path, encoded_tile_set).unwrap();
+    tile_set
+}
 
 fn main() {
     let matches = App::new("emosaic")
@@ -97,19 +111,27 @@ fn main() {
     }
 
     // Read all images in tiles directory
-    let tiles_dir = Path::new(tiles_dir_path);
-    let images = read_images_in_dir(tiles_dir);
+    let tiles_path = Path::new(tiles_dir_path);
 
     let output = match mode {
         "1to1" => {
-            let tile_set = analyse(images);
+            let analysis_cache_path = tiles_path.join("_emosaic_1to1");
+            let tile_set = match fs::read(&analysis_cache_path) {
+                Ok(bytes) => bincode::deserialize(&bytes).unwrap(),
+                _ => generate_tile_set(tiles_path, &analysis_cache_path, analyse_1to1),
+            };
             render_1to1(&img, &tile_set, tile_size)
         }
         "4to1" => {
-            let tile_set = quad_analyse(images);
+            let analysis_cache_path = tiles_path.join("_emosaic_4to1");
+            let tile_set = match fs::read(&analysis_cache_path) {
+                Ok(bytes) => bincode::deserialize(&bytes).unwrap(),
+                _ => generate_tile_set(tiles_path, &analysis_cache_path, analyse_4to1),
+            };
             render_4to1(&img, &tile_set, tile_size)
         }
         "random" => {
+            let images = read_images_in_dir(tiles_path);
             let mut tile_set = TileSet::<()>::new();
             for (path_buf, _) in images {
                 let tile = Tile::<()>::new(path_buf, ());
