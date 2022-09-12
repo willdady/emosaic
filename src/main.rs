@@ -4,7 +4,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use clap::{App, Arg};
-use image::{ImageFormat, RgbImage};
+use image::{imageops, DynamicImage, ImageFormat, RgbImage, Rgba, RgbaImage};
 
 use mosaic::{
     image::{analyse_1to1, analyse_4to1, read_images_in_dir},
@@ -137,13 +137,38 @@ fn main() {
                 let tile = Tile::<()>::new(path_buf, ());
                 tile_set.push(tile);
             }
-            render_random(&img, &tile_set, tile_size, tint_opacity)
+            render_random(&img, &tile_set, tile_size)
         }
         _ => {
             eprintln!("Invalid value for 'mode': Value must be 1to1, 4to1 or random");
             std::process::exit(1);
         }
     };
+
+    if tint_opacity > 0.0 {
+        let mut overlay = RgbaImage::new(img.width(), img.height());
+        for x in 0..img.width() {
+            for y in 0..img.height() {
+                let p = img.get_pixel(x, y);
+                let p2: Rgba<u8> = Rgba([p[0], p[1], p[2], (255_f64 * tint_opacity) as u8]);
+                overlay.put_pixel(x, y, p2);
+            }
+        }
+        // Scale up to match the output size
+        let overlay = imageops::resize(
+            &overlay,
+            output.width(),
+            output.height(),
+            image::FilterType::Nearest,
+        );
+        // Apply overlay
+        let mut output2 = DynamicImage::ImageRgb8(output.clone()).to_rgba();
+        imageops::overlay(&mut output2, &overlay, 0, 0);
+        output2
+            .save_with_format(output_path, ImageFormat::PNG)
+            .unwrap();
+        return;
+    }
 
     output
         .save_with_format(output_path, ImageFormat::PNG)

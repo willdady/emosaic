@@ -10,7 +10,7 @@ use color::SerializableRgb;
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{mosaic::color::compare_color, mosaic::image::fill_rect};
+use crate::mosaic::color::compare_color;
 
 use self::color::IntoSerializableRgb;
 
@@ -207,12 +207,7 @@ pub fn render_4to1(
     output
 }
 
-pub fn render_random(
-    source_img: &RgbImage,
-    tile_set: &TileSet<()>,
-    tile_size: u32,
-    tint_opacity: f64,
-) -> RgbImage {
+pub fn render_random(source_img: &RgbImage, tile_set: &TileSet<()>, tile_size: u32) -> RgbImage {
     let mut output = RgbImage::new(
         source_img.width() * tile_size,
         source_img.height() * tile_size,
@@ -223,8 +218,6 @@ pub fn render_random(
 
     for tile_y in 0..source_img.height() {
         for tile_x in 0..source_img.width() {
-            let mut pixel = *source_img.get_pixel(tile_x, tile_y);
-
             let tile = tile_set.random_tile();
             let path = tile.path();
             match resize_cache.get(path) {
@@ -249,16 +242,6 @@ pub fn render_random(
                     resize_cache.insert(path, tile_img);
                 }
             };
-            // Apply tint to each tile in the output tile
-            if tint_opacity <= 0.0 {
-                continue;
-            }
-            pixel[3] = (255_f64 * tint_opacity).round() as u8;
-            fill_rect(
-                &mut output,
-                &pixel,
-                &(tile_x * tile_size, tile_y * tile_size, tile_size, tile_size),
-            );
         }
     }
     output

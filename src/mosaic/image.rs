@@ -1,27 +1,13 @@
-use std::fs::{self};
+use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::channel;
 use std::thread;
 
-use image::{DynamicImage, GenericImage, Pixel, RgbImage};
+use image::{DynamicImage, RgbImage};
 
 use super::color::{average_color, IntoSerializableRgb, SerializableRgb};
 use crate::{Tile, TileSet};
-
-pub fn fill_rect<T>(img: &mut T, color: &T::Pixel, rect: &(u32, u32, u32, u32))
-where
-    T: GenericImage,
-{
-    let (x, y, width, height) = *rect;
-    for y2 in y..(y + height) {
-        for x2 in x..(x + width) {
-            let mut pixel = img.get_pixel(x2, y2);
-            pixel.blend(color);
-            img.put_pixel(x2, y2, pixel);
-        }
-    }
-}
 
 fn read_dir(dir: &Path) -> io::Result<Vec<PathBuf>> {
     let mut paths: Vec<PathBuf> = Vec::new();
