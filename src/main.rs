@@ -3,7 +3,7 @@ mod mosaic;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use clap::{App, Arg};
+use clap::{self, Parser, ValueEnum};
 use image::{imageops, DynamicImage, ImageFormat, RgbImage, Rgba, RgbaImage};
 
 use mosaic::{
@@ -24,78 +24,65 @@ fn generate_tile_set<T: Serialize>(
     tile_set
 }
 
+#[derive(Parser)]
+#[clap(author, version, about, long_about = None)]
+struct Cli {
+    /// The size of each tile in the output image
+    #[clap(default_value_t = 16_u32, short = 's', long, value_parser)]
+    tile_size: u32,
+
+    /// Value between 0 and 1 indicating the opacity of the source image overlayed on the output image
+    #[clap(default_value_t = 0.0, short, long, value_parser = is_between_zero_and_one)]
+    tint_opacity: f64,
+
+    /// Output image path
+    #[clap(default_value_t = String::from("./output.png"), short, long, value_parser)]
+    output_path: String,
+
+    /// Mosaic mode to use
+    #[clap(arg_enum, short, long, value_parser)]
+    mode: Mode,
+
+    /// Path to directory containing tile images
+    #[clap(value_parser)]
+    tiles_dir: String,
+
+    /// Path to input image
+    #[clap(value_parser)]
+    img: String,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+enum Mode {
+    #[clap(id = "1to1")]
+    OneToOne,
+    #[clap(id = "4to1")]
+    FourToOne,
+    #[clap(id = "random")]
+    Random,
+}
+
+/// Parses str as f64 and returns the resulting value if between 0 and 1 (inclusive)
+fn is_between_zero_and_one(s: &str) -> Result<f64, String> {
+    let value: f64 = s.parse().map_err(|e| format!("{}", e))?;
+    if value >= 0.0 && value <= 1.0 {
+        return Ok(value);
+    }
+    Err(String::from("Value must be between 0 and 1"))
+}
+
 fn main() {
-    let matches = App::new("emosaic")
-        .version("0.2.0")
-        .author("Will Dady <willdady@gmail.com>")
-        .about("Mosaic generator")
-        .arg(Arg::with_name("tile_size")
-            .short("s")
-            .long("tile-size")
-            .value_name("UINT")
-            .help("The size of each tile in the output image")
-            .default_value("16"))
-        .arg(Arg::with_name("tint_opacity")
-            .short("t")
-            .long("tint-opacity")
-            .value_name("FLOAT")
-            .help("Value between 0 and 1 indicating the opacity of the source image overlayed on the output image")
-            .default_value("0"))
-        .arg(Arg::with_name("output_path")
-            .short("o")
-            .long("output")
-            .value_name("PATH")
-            .help("Output image path")
-            .default_value("./output.png"))
-        .arg(Arg::with_name("mode")
-            .short("m")
-            .long("MODE")
-            .value_name("STRING")
-            .help("Mosaic mode to use")
-            .default_value("1to1"))
-        .arg(Arg::with_name("tiles_dir")
-            .value_name("DIR")
-            .help("Directory containing tile images")
-            .index(1)
-            .required(true))
-        .arg(Arg::with_name("IMG")
-            .help("Input image")
-            .index(2)
-            .required(true))
-        .get_matches();
+    let cli = Cli::parse();
 
-    let img = matches.value_of("IMG").unwrap();
-    let output_path = matches.value_of("output_path").unwrap();
-    let tiles_dir_path = matches.value_of("tiles_dir").unwrap();
-    let mode = matches.value_of("mode").unwrap();
-
-    let tile_size = match matches.value_of("tile_size").unwrap().parse::<u32>() {
-        Ok(val) => val,
-        _ => {
-            eprintln!("Invalid value for 'tile-size': Value must be an unsigned integer");
-            std::process::exit(1);
-        }
-    };
-
-    let tint_opacity = match matches.value_of("tint_opacity").unwrap().parse::<f64>() {
-        Ok(val) => {
-            let val = val.abs();
-            if val > 1.0 {
-                eprintln!(
-                    "Invalid value for 'tint-opacity': Value must be a float between 0 and 1"
-                );
-                std::process::exit(1);
-            }
-            val
-        }
-        _ => {
-            eprintln!("Invalid value for 'tint-opacity': Value must be a float between 0 and 1");
-            std::process::exit(1);
-        }
-    };
+    let img = cli.img;
+    let output_path = cli.output_path;
+    let tiles_dir_path = cli.tiles_dir;
+    let mode = cli.mode;
+    let tile_size = cli.tile_size;
+    let tint_opacity = cli.tint_opacity;
 
     // Open the source image
-    let img_path = Path::new(img);
+    let img_path = Path::new(&img);
     let img = match image::open(img_path) {
         Ok(img) => img.to_rgb(),
         Err(e) => {
@@ -105,16 +92,16 @@ fn main() {
     };
 
     // Validate the source image dimensions when mode = 4to1
-    if mode == "4to1" && (img.width() % 2 != 0 || img.height() % 2 != 0) {
+    if mode == Mode::FourToOne && (img.width() % 2 != 0 || img.height() % 2 != 0) {
         eprintln!("Invalid source dimensions ({}x{}): Dimensions must be divisible by 2 when mode is 4to1", img.width(), img.height());
         std::process::exit(1);
     }
 
     // Read all images in tiles directory
-    let tiles_path = Path::new(tiles_dir_path);
+    let tiles_path = Path::new(&tiles_dir_path);
 
     let output = match mode {
-        "1to1" => {
+        Mode::OneToOne => {
             let analysis_cache_path = tiles_path.join("_emosaic_1to1");
             let tile_set = match fs::read(&analysis_cache_path) {
                 Ok(bytes) => bincode::deserialize(&bytes).unwrap(),
@@ -122,7 +109,7 @@ fn main() {
             };
             render_1to1(&img, &tile_set, tile_size)
         }
-        "4to1" => {
+        Mode::FourToOne => {
             let analysis_cache_path = tiles_path.join("_emosaic_4to1");
             let tile_set = match fs::read(&analysis_cache_path) {
                 Ok(bytes) => bincode::deserialize(&bytes).unwrap(),
@@ -130,7 +117,7 @@ fn main() {
             };
             render_4to1(&img, &tile_set, tile_size)
         }
-        "random" => {
+        Mode::Random => {
             let images = read_images_in_dir(tiles_path);
             let mut tile_set = TileSet::<()>::new();
             for (path_buf, _) in images {
@@ -138,10 +125,6 @@ fn main() {
                 tile_set.push(tile);
             }
             render_random(&img, &tile_set, tile_size)
-        }
-        _ => {
-            eprintln!("Invalid value for 'mode': Value must be 1to1, 4to1 or random");
-            std::process::exit(1);
         }
     };
 
