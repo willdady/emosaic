@@ -10,11 +10,9 @@ use color::SerializableRgb;
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::mosaic::color::compare_color;
-
 use self::color::IntoSerializableRgb;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Tile<T> {
     path_buf: PathBuf,
     colors: T,
@@ -30,31 +28,42 @@ impl<T> Tile<T> {
     }
 }
 
-impl Tile<[SerializableRgb; 4]> {
-    fn compare_top_left(&self, color: SerializableRgb) -> f64 {
-        compare_color(&self.colors[0].into(), &color.into())
-    }
-
-    fn compare_top_right(&self, color: SerializableRgb) -> f64 {
-        compare_color(&self.colors[1].into(), &color.into())
-    }
-
-    fn compare_bottom_right(&self, color: SerializableRgb) -> f64 {
-        compare_color(&self.colors[2].into(), &color.into())
-    }
-
-    fn compare_bottom_left(&self, color: SerializableRgb) -> f64 {
-        compare_color(&self.colors[3].into(), &color.into())
-    }
-}
-
-impl Tile<SerializableRgb> {
-    fn compare(&self, color: SerializableRgb) -> f64 {
-        compare_color(&self.colors.into(), &color.into())
+impl kd_tree::KdPoint for Tile<[SerializableRgb; 4]> {
+    type Scalar = f64;
+    type Dim = typenum::U12;
+    fn at(&self, k: usize) -> f64 {
+        if k < 3 {
+            let color = <[u8; 3]>::from(self.colors[0]);
+            return f64::from(color[k]);
+        }
+        if k < 6 {
+            let color = <[u8; 3]>::from(self.colors[1]);
+            return f64::from(color[k - 3]);
+        }
+        if k < 9 {
+            let color = <[u8; 3]>::from(self.colors[2]);
+            return f64::from(color[k - 6]);
+        }
+        let color = <[u8; 3]>::from(self.colors[3]);
+        f64::from(color[k - 9])
     }
 }
 
-#[derive(Serialize, Deserialize)]
+impl kd_tree::KdPoint for Tile<SerializableRgb> {
+    type Scalar = f64;
+    type Dim = typenum::U3;
+    fn at(&self, k: usize) -> f64 {
+        if k == 0 {
+            return f64::from(self.colors.red());
+        }
+        if k == 1 {
+            return f64::from(self.colors.green());
+        }
+        f64::from(self.colors.blue())
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 pub struct TileSet<T> {
     tiles: Vec<Tile<T>>,
 }
@@ -75,49 +84,6 @@ impl<T> TileSet<T> {
     }
 }
 
-trait NearestTile<T> {
-    fn nearest_tile(&self, colors: &T) -> &Tile<T>;
-}
-
-impl NearestTile<[SerializableRgb; 4]> for TileSet<[SerializableRgb; 4]> {
-    fn nearest_tile(&self, colors: &[SerializableRgb; 4]) -> &Tile<[SerializableRgb; 4]> {
-        let mut d = std::f64::MAX;
-        let mut t = &self.tiles[0];
-
-        for tile in &self.tiles {
-            let [top_left, top_right, bottom_right, bottom_left] = colors;
-
-            let tl2 = tile.compare_top_left(*top_left);
-            let tr2 = tile.compare_top_right(*top_right);
-            let br2 = tile.compare_bottom_right(*bottom_right);
-            let bl2 = tile.compare_bottom_left(*bottom_left);
-
-            let d2 = tl2 + tr2 + br2 + bl2;
-
-            if d2 < d {
-                d = d2;
-                t = tile;
-            }
-        }
-        t
-    }
-}
-
-impl NearestTile<SerializableRgb> for TileSet<SerializableRgb> {
-    fn nearest_tile(&self, colors: &SerializableRgb) -> &Tile<SerializableRgb> {
-        let mut d = std::f64::MAX;
-        let mut t = &self.tiles[0];
-        for tile in &self.tiles {
-            let d2 = tile.compare(*colors);
-            if d2 < d {
-                d = d2;
-                t = tile;
-            }
-        }
-        t
-    }
-}
-
 pub fn render_1to1(
     source_img: &RgbImage,
     tile_set: &TileSet<SerializableRgb>,
@@ -131,11 +97,18 @@ pub fn render_1to1(
     // Cache mapping file path to resized tile image
     let mut resize_cache = HashMap::new();
 
+    // Create kd-tree
+    let kdtree: kd_tree::KdTree<Tile<SerializableRgb>> =
+        kd_tree::KdTree::build_by_ordered_float(tile_set.tiles.clone());
+
     for y in 0..source_img.height() {
         for x in 0..source_img.width() {
             let color = *source_img.get_pixel(x, y);
 
-            let tile = tile_set.nearest_tile(&color.into_serializable_rgb());
+            let tile = kdtree
+                .nearest(&<[f64; 3]>::from(color.into_serializable_rgb()))
+                .unwrap()
+                .item;
 
             // Calculate tile coordinates in output image
             let tile_x = x * tile_size;
@@ -174,6 +147,10 @@ pub fn render_4to1(
     // Cache mapping file path to resized tile image
     let mut resize_cache = HashMap::new();
 
+    // Create kd-tree
+    let kdtree: kd_tree::KdTree<Tile<[SerializableRgb; 4]>> =
+        kd_tree::KdTree::build_by_ordered_float(tile_set.tiles.clone());
+
     for y in (0..source_img.height()).step_by(2) {
         for x in (0..source_img.width()).step_by(2) {
             let colors: [SerializableRgb; 4] = [
@@ -183,19 +160,35 @@ pub fn render_4to1(
                 (*source_img.get_pixel(x, y + 1)).into_serializable_rgb(),
             ];
 
-            let tile = tile_set.nearest_tile(&colors);
+            let tile = kdtree
+                .nearest(&[
+                    f64::from(colors[0].red()),
+                    f64::from(colors[0].green()),
+                    f64::from(colors[0].blue()),
+                    f64::from(colors[1].red()),
+                    f64::from(colors[1].green()),
+                    f64::from(colors[1].blue()),
+                    f64::from(colors[2].red()),
+                    f64::from(colors[2].green()),
+                    f64::from(colors[2].blue()),
+                    f64::from(colors[3].red()),
+                    f64::from(colors[3].green()),
+                    f64::from(colors[3].blue()),
+                ])
+                .unwrap()
+                .item;
 
             // Calculate tile coordinates in output image
             let tile_x = x / 2 * tile_size;
             let tile_y = y / 2 * tile_size;
 
-            let path = tile.path();
-            match resize_cache.get(path) {
+            let path = tile.path().to_owned();
+            match resize_cache.get(&path) {
                 Some(tile_img) => {
                     imageops::overlay(&mut output, tile_img, tile_x, tile_y);
                 }
                 _ => {
-                    let tile_img = ::image::open(path).unwrap().to_rgb();
+                    let tile_img = ::image::open(&path).unwrap().to_rgb();
                     let tile_img =
                         imageops::resize(&tile_img, tile_size, tile_size, FilterType::Lanczos3);
                     imageops::overlay(&mut output, &tile_img, tile_x, tile_y);

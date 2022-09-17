@@ -4,12 +4,26 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct SerializableRgb(u8, u8, u8);
 
+impl SerializableRgb {
+    pub fn red(&self) -> u8 {
+        self.0
+    }
+
+    pub fn green(&self) -> u8 {
+        self.1
+    }
+
+    pub fn blue(&self) -> u8 {
+        self.2
+    }
+}
+
 pub trait IntoSerializableRgb {
-    fn into_serializable_rgb(&self) -> SerializableRgb;
+    fn into_serializable_rgb(self) -> SerializableRgb;
 }
 
 impl IntoSerializableRgb for Rgb<u8> {
-    fn into_serializable_rgb(&self) -> SerializableRgb {
+    fn into_serializable_rgb(self) -> SerializableRgb {
         SerializableRgb(self[0], self[1], self[2])
     }
 }
@@ -17,6 +31,12 @@ impl IntoSerializableRgb for Rgb<u8> {
 impl From<SerializableRgb> for [u8; 3] {
     fn from(rgb: SerializableRgb) -> Self {
         [rgb.0, rgb.1, rgb.2]
+    }
+}
+
+impl From<SerializableRgb> for [f64; 3] {
+    fn from(rgb: SerializableRgb) -> Self {
+        [f64::from(rgb.0), f64::from(rgb.1), f64::from(rgb.2)]
     }
 }
 
@@ -39,14 +59,4 @@ pub fn average_color(img: &RgbImage, rect: &(u32, u32, u32, u32)) -> Rgb<u8> {
     let g = (g / count).round() as u8;
     let b = (b / count).round() as u8;
     Rgb([r, g, b])
-}
-
-pub fn compare_color(a: &[u8; 3], b: &[u8; 3]) -> f64 {
-    let r1 = f64::from(a[0]);
-    let g1 = f64::from(a[1]);
-    let b1 = f64::from(a[2]);
-    let r2 = f64::from(b[0]);
-    let g2 = f64::from(b[1]);
-    let b2 = f64::from(b[2]);
-    ((r2 - r1) * 0.3).powi(2) + ((g2 - g1) * 0.59).powi(2) + ((b2 - b1) * 0.11).powi(2)
 }

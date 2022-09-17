@@ -43,6 +43,10 @@ struct Cli {
     #[clap(arg_enum, short, long, value_parser)]
     mode: Mode,
 
+    /// Deletes analysis cache from tiles directory forcing re-analysis of tiles
+    #[clap(short, long, value_parser)]
+    force: bool,
+
     /// Path to directory containing tile images
     #[clap(value_parser)]
     tiles_dir: String,
@@ -65,7 +69,7 @@ enum Mode {
 /// Parses str as f64 and returns the resulting value if between 0 and 1 (inclusive)
 fn is_between_zero_and_one(s: &str) -> Result<f64, String> {
     let value: f64 = s.parse().map_err(|e| format!("{}", e))?;
-    if value >= 0.0 && value <= 1.0 {
+    if (0.0..=1.0).contains(&value) {
         return Ok(value);
     }
     Err(String::from("Value must be between 0 and 1"))
@@ -74,12 +78,15 @@ fn is_between_zero_and_one(s: &str) -> Result<f64, String> {
 fn main() {
     let cli = Cli::parse();
 
-    let img = cli.img;
-    let output_path = cli.output_path;
-    let tiles_dir_path = cli.tiles_dir;
-    let mode = cli.mode;
-    let tile_size = cli.tile_size;
-    let tint_opacity = cli.tint_opacity;
+    let Cli {
+        force,
+        img,
+        output_path,
+        tiles_dir,
+        mode,
+        tile_size,
+        tint_opacity,
+    } = cli;
 
     // Open the source image
     let img_path = Path::new(&img);
@@ -98,11 +105,14 @@ fn main() {
     }
 
     // Read all images in tiles directory
-    let tiles_path = Path::new(&tiles_dir_path);
+    let tiles_path = Path::new(&tiles_dir);
 
     let output = match mode {
         Mode::OneToOne => {
-            let analysis_cache_path = tiles_path.join("_emosaic_1to1");
+            let analysis_cache_path = tiles_path.join(".emosaic_1to1");
+            if force {
+                fs::remove_file(&analysis_cache_path).ok();
+            }
             let tile_set = match fs::read(&analysis_cache_path) {
                 Ok(bytes) => bincode::deserialize(&bytes).unwrap(),
                 _ => generate_tile_set(tiles_path, &analysis_cache_path, analyse_1to1),
@@ -110,7 +120,10 @@ fn main() {
             render_1to1(&img, &tile_set, tile_size)
         }
         Mode::FourToOne => {
-            let analysis_cache_path = tiles_path.join("_emosaic_4to1");
+            let analysis_cache_path = tiles_path.join(".emosaic_4to1");
+            if force {
+                fs::remove_file(&analysis_cache_path).ok();
+            }
             let tile_set = match fs::read(&analysis_cache_path) {
                 Ok(bytes) => bincode::deserialize(&bytes).unwrap(),
                 _ => generate_tile_set(tiles_path, &analysis_cache_path, analyse_4to1),
@@ -145,7 +158,7 @@ fn main() {
             image::FilterType::Nearest,
         );
         // Apply overlay
-        let mut output2 = DynamicImage::ImageRgb8(output.clone()).to_rgba();
+        let mut output2 = DynamicImage::ImageRgb8(output).to_rgba();
         imageops::overlay(&mut output2, &overlay, 0, 0);
         output2
             .save_with_format(output_path, ImageFormat::PNG)
