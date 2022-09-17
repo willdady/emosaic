@@ -49,7 +49,7 @@ Assuming a source image with dimensions 100x100 and default tile size of 16 the 
 By default the resulting image will be output to the current directory as `output.png`. You can specify the output file with the `-o, --output` option e.g.
 
 ```
-emosaic /path/to/tile/images/ source.png -o /foo/bar/myimage.png
+emosaic -o /foo/bar/myimage.png /path/to/tile/images/ source.png
 ```
 
 Output format is _always_ PNG.
@@ -59,7 +59,7 @@ Output format is _always_ PNG.
 Each 'tile' in the output image will be 16x16 by default. Provide a custom size with the `-s, --tile-size` option. Note the size of your source image and tile size dictate the final size of your output image. For example, if your source image is 100x200 and you specify a tile size of 32 with the default mode _1to1_ the output image will be 3200x6400! So be careful!
 
 ```
-emosaic /path/to/tile/images/ source.png -s 32
+emosaic -s 32 /path/to/tile/images/ source.png
 ```
 
 ### Tinting
@@ -67,5 +67,11 @@ emosaic /path/to/tile/images/ source.png -s 32
 Use the tinting option, `-t, --tint-opacity`, to control the transparency of the source image overlayed on top of the the output mosaic. This can be useful to push the overall color of each tile closer to the color(s) it was sampled from in the source image. Value must be between 0 and 1. Default is 0.
 
 ```
-emosaic /path/to/tile/images/ source.png -t 0.5
+emosaic -t 0.5 /path/to/tile/images/ source.png
 ```
+
+### Force
+
+When invoking emosaic for a given directory the images will be analysed with the results written to a cache file in the directory as `.emosiac_*`. For example, invoking emosaic with `-m 4to1` will output a file named `.emosaic_4to1` in your tiles directory. Emosaic always looks for an existing cache file in the tiles directory before analysing tiles. This offers a significant speed-up when creating multiple images from the same source tiles.
+
+If you add, remove or change images in your tiles directory you must delete the `.emosaic_*` file(s) so that your tiles are reanalysed and a new cache file is created. You can either delete the file(s) manually or simply invoke emosaic with `-f` to force reanalysis and update the cache file.

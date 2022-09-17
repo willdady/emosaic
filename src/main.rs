@@ -40,7 +40,7 @@ struct Cli {
     output_path: String,
 
     /// Mosaic mode to use
-    #[clap(arg_enum, short, long, value_parser)]
+    #[clap(default_value_t = Mode::OneToOne, arg_enum, short, long, value_parser)]
     mode: Mode,
 
     /// Deletes analysis cache from tiles directory forcing re-analysis of tiles
